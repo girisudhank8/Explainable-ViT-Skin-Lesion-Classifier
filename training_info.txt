@@ -1,0 +1,23 @@
+ How to Train the Model on ISIC 2024 Dataset
+You can train the models using the dedicated training script 
+train_isic2024.py
+:
+
+A. Train the Hybrid CNN-Transformer (Paper 02):
+powershell
+
+
+python train_isic2024.py --model_type hybrid_vit --epochs 25 --lr 0.0002 --loss_type focal
+B. Train Pretrained Vision Transformer (Papers 01, 05):
+powershell
+
+
+python train_isic2024.py --model_type pretrained_vit --epochs 20 --lr 0.0001 --loss_type focal
+C. Train on External ISIC 2024 Challenge Files:
+powershell
+
+
+python train_isic2024.py --data_dir /path/to/isic2024 --csv_file /path/to/train-metadata.csv --hdf5_file /path/to/train-image.hdf5 --model_type hybrid_vit
+The best checkpoint is automatically saved to 
+checkpoints/vit_lesion_classifier_best.pt
+ and immediately served by the web app.

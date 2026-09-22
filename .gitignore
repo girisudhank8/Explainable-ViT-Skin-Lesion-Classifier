@@ -1,0 +1,26 @@
+# Python / Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Large Datasets & Images (Do NOT push to GitHub)
+data/
+*.jpg
+*.jpeg
+*.png
+*.h5
+*.hdf5
+*.csv
+
+# Environment & IDE
+.venv/
+venv/
+ENV/
+.idea/
+.vscode/
+*.swp
+
+# OS generated
+.DS_Store
+Thumbs.db
