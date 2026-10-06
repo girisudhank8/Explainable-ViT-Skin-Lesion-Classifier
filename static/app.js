@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let currentInputMode = "library"; // "library" or "upload"
     let selectedFile = null;
     let availableSamples = [];
+    let currentScanContext = "";
 
     // DOM Elements - Navigation
     const tabBtns = document.querySelectorAll(".tab-btn");
@@ -223,10 +224,84 @@ document.addEventListener("DOMContentLoaded", () => {
 
     loadSamples();
 
-    // --- 6. RUN DIAGNOSIS (ViT + ATTENTION ROLLOUT) ---
+    // Helper functions for simultaneous execution
+    async function runBenchmark() {
+        btnRunBenchmark.disabled = true;
+        btnRunBenchmark.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Benchmarking...';
+        const formData = new FormData();
+        formData.append("colormap", xaiColormap.value);
+        formData.append("alpha", xaiAlpha.value);
+        if (currentInputMode === "upload") {
+            if (selectedFile) formData.append("file", selectedFile);
+        } else {
+            formData.append("sample_id", sampleSelect.value);
+        }
+        try {
+            const res = await fetch("/api/benchmark", { method: "POST", body: formData });
+            if (!res.ok) return;
+            const data = await res.json();
+            bmImgOriginal.src = data.original_image;
+            bmImgOriginal.classList.remove("hidden");
+            bmPh1.classList.add("hidden");
+            bmImgVit.src = data.vit.overlay_image;
+            bmImgVit.classList.remove("hidden");
+            bmPh2.classList.add("hidden");
+            bmImgCnn.src = data.cnn.overlay_image;
+            bmImgCnn.classList.remove("hidden");
+            bmPh3.classList.add("hidden");
+            bmVitMeta.classList.remove("hidden");
+            bmVitPred.textContent = `${data.vit.pred_class} (${data.vit.probability}%)`;
+            bmVitFocus.textContent = `${data.vit.diagnostics.central_focus}% Central (${data.vit.latency_ms}ms)`;
+            bmCnnMeta.classList.remove("hidden");
+            bmCnnPred.textContent = `${data.cnn.pred_class} (${data.cnn.probability}%)`;
+            bmCnnFocus.textContent = `${data.cnn.diagnostics.central_focus}% Central (${data.cnn.latency_ms}ms)`;
+        } catch (err) {
+            console.error(err);
+        } finally {
+            btnRunBenchmark.disabled = false;
+            btnRunBenchmark.textContent = "Run Benchmark Comparison";
+        }
+    }
+
+    async function runLayerwise() {
+        btnRunLayerwise.disabled = true;
+        btnRunLayerwise.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Computing Layers...';
+        const formData = new FormData();
+        formData.append("colormap", xaiColormap.value);
+        formData.append("alpha", xaiAlpha.value);
+        if (currentInputMode === "upload") {
+            if (selectedFile) formData.append("file", selectedFile);
+        } else {
+            formData.append("sample_id", sampleSelect.value);
+        }
+        try {
+            const res = await fetch("/api/layerwise", { method: "POST", body: formData });
+            if (!res.ok) return;
+            const data = await res.json();
+            layerwiseGrid.innerHTML = "";
+            data.layers.forEach(layer => {
+                const card = document.createElement("div");
+                card.className = "bg-slate-50 p-2 rounded-xl border border-slate-200 text-center space-y-1.5";
+                card.innerHTML = `
+                    <span class="text-xs font-bold text-slate-700 block">Encoder Layer ${layer.layer_number}</span>
+                    <div class="aspect-square bg-slate-200 rounded-lg overflow-hidden">
+                        <img src="${layer.image}" class="w-full h-full object-cover">
+                    </div>
+                `;
+                layerwiseGrid.appendChild(card);
+            });
+        } catch (err) {
+            console.error(err);
+        } finally {
+            btnRunLayerwise.disabled = false;
+            btnRunLayerwise.textContent = "Compute Depth Breakdown";
+        }
+    }
+
+    // --- 6. RUN DIAGNOSIS (ViT + ATTENTION ROLLOUT + SIMULTANEOUS BENCHMARK/LAYERS) ---
     btnDiagnose.addEventListener("click", async () => {
         btnDiagnose.disabled = true;
-        btnDiagnose.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing ViT Attention Flow...';
+        btnDiagnose.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing ViT Attention & All Modules...';
 
         const formData = new FormData();
         formData.append("discard_ratio", xaiDiscard.value);
@@ -247,17 +322,19 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
-            const res = await fetch("/api/diagnose", {
-                method: "POST",
-                body: formData
-            });
+            // Run Diagnosis, Benchmark, and Layer-Wise Depth simultaneously via Promise.all
+            const [diagRes] = await Promise.all([
+                fetch("/api/diagnose", { method: "POST", body: formData }),
+                runBenchmark(),
+                runLayerwise()
+            ]);
 
-            if (!res.ok) {
-                const errData = await res.json();
+            if (!diagRes.ok) {
+                const errData = await diagRes.json();
                 throw new Error(errData.detail || "Diagnosis failed");
             }
 
-            const data = await res.json();
+            const data = await diagRes.json();
             renderDiagnosisResults(data);
         } catch (err) {
             alert(`Error running diagnosis: ${err.message}`);
@@ -282,12 +359,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Risk Card
         const top = data.top_prediction;
+        const diag = data.diagnostics;
+
         topClass.textContent = top.class_name;
         topProbBadge.textContent = `${top.percent}%`;
         riskTitle.textContent = top.risk_title;
         riskAdvice.textContent = top.risk_advice;
-        if (xaiDetailedExplanation && data.diagnostics.detailed_explanation) {
-            xaiDetailedExplanation.textContent = data.diagnostics.detailed_explanation;
+        const xaiBox = document.getElementById("xai-detailed-explanation");
+        if (xaiBox && diag && diag.detailed_explanation) {
+            xaiBox.textContent = diag.detailed_explanation;
+        }
+
+        // Populate Deep Audit Modal fields
+        const auditFocus = document.getElementById("audit-central-focus");
+        const auditOverlap = document.getElementById("audit-edge-overlap");
+        const auditGemini = document.getElementById("audit-full-gemini-text");
+        const auditAdvice = document.getElementById("audit-advice-text");
+        if (auditFocus) auditFocus.textContent = `${diag.central_attention_ratio}%`;
+        if (auditOverlap) auditOverlap.textContent = `${diag.edge_overlap_ratio}%`;
+        if (auditGemini && diag.detailed_explanation) auditGemini.textContent = diag.detailed_explanation;
+        if (auditAdvice) auditAdvice.textContent = top.risk_advice;
+
+        // Update Chatbot context indicator
+        currentScanContext = `Image: ${data.image_name} | Top Diagnosis: ${top.class_name} (${top.percent}%) | Risk Level: ${top.risk_title} | Central Attention Focus: ${diag.central_attention_ratio}% | Edge/Hair Overlap: ${diag.edge_overlap_ratio}% | XAI Explanation: ${diag.detailed_explanation}`;
+        if (chatContextText) {
+            chatContextText.textContent = `Scan Context: ${top.code} (${top.percent}%) | Focus: ${diag.central_attention_ratio}%`;
         }
 
         // Banner Risk Color
@@ -304,7 +400,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // Artifact Status Bar
-        const diag = data.diagnostics;
         artifactBox.classList.remove("hidden");
         valCentral.textContent = `${diag.central_attention_ratio}%`;
         valOverlap.textContent = `${diag.edge_overlap_ratio}%`;
@@ -452,6 +547,122 @@ document.addEventListener("DOMContentLoaded", () => {
         } finally {
             btnRunLayerwise.disabled = false;
             btnRunLayerwise.textContent = "Compute Depth Breakdown";
+        }
+    });
+
+    // --- 9. GEMINI CHATBOT WIDGET LOGIC ---
+    const chatbotToggleBtn = document.getElementById("chatbot-toggle-btn");
+    const chatbotCloseBtn = document.getElementById("chatbot-close-btn");
+    const chatbotWindow = document.getElementById("chatbot-window");
+    const chatForm = document.getElementById("chat-form");
+    const chatInput = document.getElementById("chat-input");
+    const chatMessages = document.getElementById("chat-messages");
+    const chatContextText = document.getElementById("chat-context-text");
+
+    chatbotToggleBtn.addEventListener("click", () => {
+        chatbotWindow.classList.toggle("hidden");
+        chatbotToggleBtn.classList.add("hidden");
+    });
+
+    chatbotCloseBtn.addEventListener("click", () => {
+        chatbotWindow.classList.add("hidden");
+        chatbotToggleBtn.classList.remove("hidden");
+    });
+
+    chatForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const msg = chatInput.value.trim();
+        if (!msg) return;
+
+        // Append User Message
+        appendChatMessage("user", msg);
+        chatInput.value = "";
+
+        // Append Loading Message
+        const loadingId = appendChatMessage("bot", '<i class="fa-solid fa-spinner fa-spin"></i> Consulting Gemini AI...');
+
+        try {
+            const formData = new FormData();
+            formData.append("user_message", msg);
+            if (currentScanContext) {
+                formData.append("context", currentScanContext);
+            }
+
+            const res = await fetch("/api/chat", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await res.json();
+            const botMsgEl = document.getElementById(loadingId);
+            if (botMsgEl) {
+                botMsgEl.innerHTML = `
+                    <div class="font-bold text-indigo-600 text-[11px] flex items-center justify-between">
+                        <span><i class="fa-solid fa-robot"></i> Gemini Assistant</span>
+                        <span class="text-[9px] text-slate-400 font-normal">${data.provider}</span>
+                    </div>
+                    <p class="text-slate-700 leading-relaxed text-[11px] whitespace-pre-wrap mt-1">${escapeHtml(data.reply)}</p>
+                `;
+            }
+        } catch (err) {
+            const botMsgEl = document.getElementById(loadingId);
+            if (botMsgEl) {
+                botMsgEl.innerHTML = `<span class="text-red-500 font-semibold text-[11px]">Error connecting to AI server.</span>`;
+            }
+        }
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+
+    function appendChatMessage(sender, htmlContent) {
+        const msgId = "msg-" + Date.now();
+        const msgDiv = document.createElement("div");
+        if (sender === "user") {
+            msgDiv.className = "bg-indigo-600 text-white p-3 rounded-xl ml-6 text-right shadow-xs";
+            msgDiv.innerHTML = `<p class="text-[11px] leading-relaxed">${escapeHtml(htmlContent)}</p>`;
+        } else {
+            msgDiv.className = "bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-1";
+            msgDiv.id = msgId;
+            msgDiv.innerHTML = htmlContent;
+        }
+        chatMessages.appendChild(msgDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return msgId;
+    }
+
+    function escapeHtml(text) {
+        return text.replace(/[&<"']/g, function(m) {
+            return { '&': '&amp;', '<': '&lt;', '"': '&quot;', "'": '&#039;' }[m];
+        });
+    }
+
+    // --- 10. DEEP CLINICAL XAI AUDIT MODAL LOGIC ---
+    const btnOpenDeepAudit = document.getElementById("btn-open-deep-audit");
+    const deepAuditModal = document.getElementById("deep-audit-modal");
+    const btnCloseDeepAudit = document.getElementById("btn-close-deep-audit");
+    const btnModalDismiss = document.getElementById("btn-modal-dismiss");
+
+    if (btnOpenDeepAudit && deepAuditModal) {
+        btnOpenDeepAudit.addEventListener("click", () => {
+            deepAuditModal.classList.remove("hidden");
+        });
+    }
+
+    if (btnCloseDeepAudit && deepAuditModal) {
+        btnCloseDeepAudit.addEventListener("click", () => {
+            deepAuditModal.classList.add("hidden");
+        });
+    }
+
+    if (btnModalDismiss && deepAuditModal) {
+        btnModalDismiss.addEventListener("click", () => {
+            deepAuditModal.classList.add("hidden");
+        });
+    }
+
+    // Close modal on escape key
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && deepAuditModal && !deepAuditModal.classList.contains("hidden")) {
+            deepAuditModal.classList.add("hidden");
         }
     });
 

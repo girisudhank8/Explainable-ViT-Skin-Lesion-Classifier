@@ -17,6 +17,11 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
+
 from src.models.vit_classifier import ExplainableViT
 from src.models.cnn_baseline import BaselineCNN
 from src.xai.attention_rollout import AttentionRollout
@@ -286,24 +291,44 @@ async def diagnose_image(
         })
     predictions.sort(key=lambda x: x["probability"], reverse=True)
 
-    # Generate structured natural language clinical explanation
+    # Generate dynamic, image-specific justification using Gemini API (or fallback rule engine)
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    explanation_text = ""
     pathology_ratio = round(float(diag["central_attention_ratio"]) * 100, 1)
     overlap_ratio = round(float(diag["edge_overlap_ratio"]) * 100, 1)
-    
-    explanation_text = (
-        f"The Vision Transformer evaluated this dermoscopy scan ({img_name}) with {top_prob*100:.1f}% confidence for {top_class_name}. "
-        f"Attention Rollout XAI confirms that {pathology_ratio}% of the model's self-attention is concentrated directly on the central pathology. "
+
+    secondary_str = ", ".join([f"{p['code']}: {p['percent']}%" for p in predictions[:3]])
+    artifact_status_str = "High Risk of Artifact Interference" if diag["is_artifact_suspect"] else "Clean Pathology Focus"
+
+    prompt_context = (
+        f"Skin Lesion Image: {img_name}\n"
+        f"Predicted Class: {top_class_name} ({top_prob*100:.1f}% confidence)\n"
+        f"Secondary Probabilities: {secondary_str}\n"
+        f"Attention Rollout Central Focus: {pathology_ratio}%\n"
+        f"Peripheral Edge/Artifact Overlap: {overlap_ratio}%\n"
+        f"Artifact Suspect Status: {artifact_status_str}\n"
+        "Instructions: Provide a concise, highly specific 3-sentence clinical XAI justification for why the Vision Transformer arrived at this diagnosis based on its self-attention distribution and morphological features."
     )
-    if diag["is_artifact_suspect"]:
-        explanation_text += (
-            f"WARNING: Peripheral overlap of {overlap_ratio}% detected near image edges or artifacts. "
-            f"While the primary prediction remains {top_code}, clinician review is advised to rule out artifact bias."
+
+    if api_key and api_key != "your_gemini_api_key_here":
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            gmodel = genai.GenerativeModel("gemini-2.5-flash")
+            g_resp = gmodel.generate_content(prompt_context)
+            explanation_text = g_resp.text.strip()
+        except Exception as e:
+            print(f"[Gemini Justification Error] {e}")
+
+    if not explanation_text:
+        explanation_text = (
+            f"The Vision Transformer evaluated '{img_name}' with {top_prob*100:.1f}% confidence for {top_class_name}. "
+            f"Attention Rollout XAI confirms that {pathology_ratio}% of self-attention is concentrated directly on central lesion morphology. "
         )
-    else:
-        explanation_text += (
-            f"Low edge overlap ({overlap_ratio}%) verifies that the diagnosis is driven by authentic lesion morphology "
-            f"(border irregularity and pigment network) rather than background noise, hair, or border artifacts."
-        )
+        if diag["is_artifact_suspect"]:
+            explanation_text += f"Peripheral edge overlap of {overlap_ratio}% was detected near borders/artifacts; clinician auditing is recommended to rule out background bias."
+        else:
+            explanation_text += f"Minimal edge overlap ({overlap_ratio}%) verifies that the diagnosis is guided by authentic pigment networks rather than hair or border noise."
 
     return {
         "status": "success",
@@ -483,6 +508,62 @@ async def layerwise_attention(
         "status": "success",
         "image_name": img_name,
         "layers": layer_overlays
+    }
+
+
+@app.post("/api/chat")
+async def chat_with_gemini(
+    user_message: str = Form(...),
+    context: Optional[str] = Form(None)
+):
+    """
+    Interactive Clinical Chatbot powered by Google Gemini API.
+    Uses diagnostic and XAI context to answer queries.
+    """
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    
+    # System context prompt
+    system_prompt = (
+        "You are 'MedVision AI Assistant', an expert AI Clinical Dermatologist and XAI Specialist. "
+        "You are assisting a medical professional using the 'Explainable Vision Transformer (ViT) Skin Lesion Diagnostic System'. "
+        "Be concise, professional, empathetic, and scientifically accurate. Always clarify that your output is for decision support.\n"
+    )
+    if context:
+        system_prompt += f"\n--- CURRENT SCAN DIAGNOSTIC CONTEXT ---\n{context}\n---------------------------------------\n"
+
+    # Attempt to use Google Gemini API if valid key is supplied
+    if api_key and api_key != "your_gemini_api_key_here":
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-2.5-flash")
+            full_prompt = f"{system_prompt}\nUser Question: {user_message}"
+            response = model.generate_content(full_prompt)
+            return {
+                "status": "success",
+                "reply": response.text,
+                "provider": "Google Gemini 2.5 Flash"
+            }
+        except Exception as e:
+            print(f"[Gemini API Error] {e}")
+            # Fallback to local rule engine if API call fails
+            return {
+                "status": "success",
+                "reply": f"(Gemini API error: {str(e)}). Fallback Assistant Response: Based on the current scan diagnostics, the lesion was evaluated using Vision Transformer Attention Rollout. Please ensure your GEMINI_API_KEY in .env is valid.",
+                "provider": "Fallback Rules"
+            }
+
+    # Fallback if no API key is provided yet
+    fallback_reply = (
+        "Hello! I am ready to answer your questions about this scan. "
+        "To enable full Google Gemini AI responses, please add your GEMINI_API_KEY inside the '.env' file in the project folder.\n\n"
+        f"Regarding your question ('{user_message}'): The Vision Transformer isolates 16x16 pixel patches using multi-head self-attention. "
+        "You can inspect the heatmap above to see which regions drove the model's diagnostic confidence."
+    )
+    return {
+        "status": "success",
+        "reply": fallback_reply,
+        "provider": "Setup Required (Missing GEMINI_API_KEY in .env)"
     }
 
 

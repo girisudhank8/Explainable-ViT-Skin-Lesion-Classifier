@@ -13,7 +13,10 @@ data/
 *.hdf5
 *.csv
 
-# Environment & IDE
+# Environment & Secrets
+.env
+
+# OS generated
 .venv/
 venv/
 ENV/

@@ -239,9 +239,14 @@
                             </div>
 
                             <div class="space-y-1.5 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                                    <i class="fa-solid fa-microscope text-indigo-600"></i> XAI Explanation Justification
-                                </h4>
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-microscope text-indigo-600"></i> XAI Explanation Justification
+                                    </h4>
+                                    <button id="btn-open-deep-audit" class="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded border border-indigo-200 flex items-center gap-1 transition-all">
+                                        <i class="fa-solid fa-file-medical"></i> View Full Audit Workflow
+                                    </button>
+                                </div>
                                 <p id="xai-detailed-explanation" class="text-[11px] text-slate-600 leading-normal">
                                     Awaiting scan execution to compute patch-level self-attention evidence.
                                 </p>
@@ -379,6 +384,160 @@
         </section>
     </main>
 
+    <!-- FLOATING GEMINI AI DERMATOLOGY CHATBOT -->
+    <div id="chatbot-container" class="fixed bottom-5 right-5 z-50">
+        <!-- Chat Toggle Button -->
+        <button id="chatbot-toggle-btn" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-4 rounded-full shadow-xl flex items-center gap-2 transition-all transform hover:scale-105">
+            <i class="fa-solid fa-robot text-lg"></i>
+            <span class="text-xs">Ask Gemini AI</span>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        </button>
+
+        <!-- Chat Window Card -->
+        <div id="chatbot-window" class="hidden w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden transition-all text-xs" style="height: 480px;">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-3.5 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-sm">
+                        <i class="fa-solid fa-brain"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-xs">MedVision Gemini Assistant</div>
+                        <div class="text-[10px] text-indigo-300">XAI & Clinical Decision Support</div>
+                    </div>
+                </div>
+                <button id="chatbot-close-btn" class="text-slate-400 hover:text-white transition-colors p-1">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <!-- Messages Stream -->
+            <div id="chat-messages" class="flex-1 p-3.5 space-y-3 overflow-y-auto bg-slate-50">
+                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-1">
+                    <div class="font-bold text-indigo-600 text-[11px] flex items-center gap-1">
+                        <i class="fa-solid fa-robot"></i> Gemini Medical Assistant
+                    </div>
+                    <p class="text-slate-700 leading-relaxed text-[11px]">
+                        Hello! I am your AI Dermatological Assistant powered by Google Gemini. Ask me anything about the scanned lesion, ViT attention rollout heatmaps, or diagnostic recommendations!
+                    </p>
+                </div>
+            </div>
+
+            <!-- Context Indicator -->
+            <div id="chat-context-bar" class="px-3 py-1.5 bg-indigo-50 border-t border-indigo-100 text-[10px] text-indigo-700 font-medium truncate flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-info text-indigo-500"></i>
+                <span id="chat-context-text">Scan Context: Awaiting Diagnosis...</span>
+            </div>
+
+            <!-- Input Bar -->
+            <form id="chat-form" class="p-2.5 bg-white border-t border-slate-200 flex gap-2">
+                <input id="chat-input" type="text" placeholder="Ask about this diagnosis or XAI heatmap..." class="flex-1 px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <button type="submit" id="chat-send-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-2 rounded-xl transition-all flex items-center justify-center">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    <!-- DEEP CLINICAL XAI AUDIT MODAL -->
+    <div id="deep-audit-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <!-- Modal Header -->
+            <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-4 flex items-center justify-between border-b border-slate-800">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">
+                        <i class="fa-solid fa-microscope text-base"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm">Deep Clinical XAI Audit & Reasoning Workflow</h3>
+                        <p class="text-[10px] text-indigo-300">End-to-End Decision Justification Engine • ViT Self-Attention Flow</p>
+                    </div>
+                </div>
+                <button id="btn-close-deep-audit" class="text-slate-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="flex-1 overflow-y-auto p-5 space-y-5 text-xs text-slate-700 bg-slate-50">
+                
+                <!-- Section 1: Step-by-Step Inference Pipeline -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
+                    <h4 class="font-bold text-slate-800 flex items-center gap-2 text-xs">
+                        <i class="fa-solid fa-diagram-project text-blue-600"></i>
+                        1. Four-Stage Diagnostic Pipeline
+                    </h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 text-center text-[11px]">
+                        <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                            <div class="font-bold text-slate-800 mb-1">Stage 1: Patches</div>
+                            <div class="text-slate-500">Image split into 16×16 spatial tokens</div>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                            <div class="font-bold text-slate-800 mb-1">Stage 2: Self-Attention</div>
+                            <div class="text-slate-500">Multi-Head attention matrix QKᵀ/√dₖ</div>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-900">
+                            <div class="font-bold mb-1">Stage 3: Rollout</div>
+                            <div class="text-indigo-600">Recursive skip-connection tracking</div>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900">
+                            <div class="font-bold mb-1">Stage 4: Verification</div>
+                            <div class="text-emerald-600">Artifact & peripheral overlap filter</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Mathematical Evidence -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2.5">
+                    <h4 class="font-bold text-slate-800 flex items-center gap-2 text-xs">
+                        <i class="fa-solid fa-calculator text-indigo-600"></i>
+                        2. Quantitative Attention Metrics for Current Scan
+                    </h4>
+                    <div class="grid grid-cols-2 gap-3 text-center">
+                        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                            <span class="text-[10px] text-slate-500 uppercase font-semibold block">Central Lesion Concentration</span>
+                            <span id="audit-central-focus" class="text-lg font-extrabold text-indigo-600">--%</span>
+                            <span class="text-[10px] text-slate-400 block mt-0.5">High = Authentic tumor morphology</span>
+                        </div>
+                        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                            <span class="text-[10px] text-slate-500 uppercase font-semibold block">Edge / Artifact Overlap</span>
+                            <span id="audit-edge-overlap" class="text-lg font-extrabold text-slate-700">--%</span>
+                            <span class="text-[10px] text-slate-400 block mt-0.5">Low = Immune to hair / border noise</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Gemini Clinical Reasoning Justification -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
+                    <h4 class="font-bold text-slate-800 flex items-center gap-2 text-xs">
+                        <i class="fa-solid fa-user-doctor text-emerald-600"></i>
+                        3. AI Dermatological Synthesis & ABCDE Rationale
+                    </h4>
+                    <div class="p-3.5 bg-indigo-50/60 rounded-xl border border-indigo-100 text-slate-800 leading-relaxed text-[11px] whitespace-pre-wrap" id="audit-full-gemini-text">
+                        Awaiting scan execution...
+                    </div>
+                </div>
+
+                <!-- Section 4: Clinical Recommendation Action -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
+                    <h4 class="font-bold text-slate-800 flex items-center gap-2 text-xs">
+                        <i class="fa-solid fa-clipboard-check text-blue-600"></i>
+                        4. Actionable Diagnostic Advice
+                    </h4>
+                    <p id="audit-advice-text" class="text-[11px] text-slate-600 leading-relaxed">
+                        --
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-3 bg-slate-100 border-t border-slate-200 flex justify-end">
+                <button id="btn-modal-dismiss" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-lg text-xs transition-all">
+                    Close Audit Report
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
         <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400">
@@ -386,7 +545,7 @@
         </div>
     </footer>
 
-    <!-- App JavaScript -->
-    <script src="/static/app.js"></script>
+    <!-- App JavaScript (cache-busted) -->
+    <script src="/static/app.js?v=20261006_03"></script>
 </body>
 </html>
