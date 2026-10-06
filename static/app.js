@@ -58,6 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const topClass = document.getElementById("top-class-name");
     const topProbBadge = document.getElementById("top-prob-badge");
     const riskAdvice = document.getElementById("risk-advice");
+    const xaiDetailedExplanation = document.getElementById("xai-detailed-explanation");
     const probList = document.getElementById("prob-list");
 
     // DOM Elements - Benchmark
@@ -285,6 +286,9 @@ document.addEventListener("DOMContentLoaded", () => {
         topProbBadge.textContent = `${top.percent}%`;
         riskTitle.textContent = top.risk_title;
         riskAdvice.textContent = top.risk_advice;
+        if (xaiDetailedExplanation && data.diagnostics.detailed_explanation) {
+            xaiDetailedExplanation.textContent = data.diagnostics.detailed_explanation;
+        }
 
         // Banner Risk Color
         riskBanner.className = "p-3.5 rounded-xl border space-y-1 mb-4 ";
