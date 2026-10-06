@@ -8,40 +8,48 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=20261006_03">
 </head>
 <body class="min-h-screen flex flex-col bg-slate-50 text-slate-800">
 
     <!-- Top Navigation Header -->
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+    <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 shadow-xs">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-md">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
                     <i class="fa-solid fa-microscope text-lg"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold text-slate-900 leading-tight">MedVision XAI <span class="text-blue-600 font-extrabold">•</span> Clinical Decision Support</h1>
-                    <p class="text-xs text-slate-500 font-medium">Explainable Vision Transformer (ViT) Multi-Class Skin Lesion Classification</p>
+                    <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight flex items-center gap-1.5">
+                        MedVision XAI <span class="text-blue-600 font-extrabold">•</span> Clinical Decision Support
+                    </h1>
+                    <p class="text-xs text-slate-500 font-medium">Explainable Vision Transformer (ViT-B/16) Multi-Class Skin Lesion Classification</p>
                 </div>
             </div>
-            <div class="flex items-center space-x-4">
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <div class="flex items-center space-x-3">
+                <span class="hidden md:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                     <span class="w-2 h-2 mr-1.5 bg-emerald-500 rounded-full animate-ping"></span>
-                    Engine: ViT-B/16 Self-Attention
+                    ViT-B/16 Self-Attention
                 </span>
-                <span class="text-xs text-slate-400 border-l border-slate-200 pl-3">ISIC Diagnostic Standard</span>
+                <span class="hidden lg:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                    ISIC Benchmark
+                </span>
+                <button id="header-chat-btn" class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200 transition-all cursor-pointer">
+                    <i class="fa-solid fa-robot text-indigo-600"></i>
+                    <span class="hidden sm:inline">Ask Gemini AI</span>
+                </button>
             </div>
         </div>
     </header>
 
     <!-- Main Workspace -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-36 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        <!-- LEFT SIDEBAR: Controls & Input -->
+        <!-- LEFT SIDEBAR: Control Deck & Input -->
         <aside class="lg:col-span-4 space-y-5">
             
-            <!-- Input Selector Card -->
-            <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-4">
+            <!-- Card 1: Input Selector -->
+            <div class="clinical-card p-5 space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                     <h2 class="font-bold text-slate-800 text-sm flex items-center gap-2">
                         <i class="fa-solid fa-images text-blue-600"></i> Image Selection
@@ -50,21 +58,21 @@
                 </div>
 
                 <!-- Input Source Tabs -->
-                <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-lg text-xs font-semibold">
-                    <button id="src-lib-btn" class="py-1.5 px-3 rounded-md bg-white shadow-sm text-blue-600 transition-all">Clinical Library</button>
-                    <button id="src-upload-btn" class="py-1.5 px-3 rounded-md text-slate-600 hover:text-slate-900 transition-all">Upload Image</button>
+                <div class="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+                    <button id="src-lib-btn" class="py-2 px-3 rounded-lg bg-white shadow-xs text-blue-600 transition-all">Clinical Library</button>
+                    <button id="src-upload-btn" class="py-2 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition-all">Upload Image</button>
                 </div>
 
                 <!-- Source 1: Clinical Sample Library -->
                 <div id="section-library" class="space-y-3">
                     <label class="block text-xs font-semibold text-slate-700">Select Clinical Sample Case:</label>
-                    <select id="sample-select" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                    <select id="sample-select" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
                         <option value="">Loading sample cases...</option>
                     </select>
-                    <div id="sample-meta" class="p-2.5 bg-blue-50/60 rounded-lg border border-blue-100 text-xs text-slate-600 hidden space-y-1">
-                        <div class="font-semibold text-blue-900 flex justify-between">
+                    <div id="sample-meta" class="p-3 bg-blue-50/70 rounded-xl border border-blue-100 text-xs text-slate-600 hidden space-y-1">
+                        <div class="font-bold text-blue-900 flex justify-between">
                             <span id="meta-dx">Ground Truth: -</span>
-                            <span id="meta-artifact" class="text-amber-700">Clean</span>
+                            <span id="meta-artifact" class="text-amber-700 font-semibold">Clean</span>
                         </div>
                         <div id="meta-details" class="text-[11px] text-slate-500">Patient info: -</div>
                     </div>
@@ -72,21 +80,28 @@
 
                 <!-- Source 2: File Upload Dropzone -->
                 <div id="section-upload" class="space-y-3 hidden">
-                    <div id="dropzone" class="dropzone rounded-xl p-5 text-center cursor-pointer bg-slate-50/70 hover:bg-blue-50/40">
+                    <div id="dropzone" class="dropzone rounded-xl p-6 text-center cursor-pointer bg-slate-50/70 hover:bg-blue-50/40">
                         <input type="file" id="file-input" class="hidden" accept="image/jpeg,image/png,image/jpg">
                         <i class="fa-solid fa-cloud-arrow-up text-3xl text-blue-500 mb-2"></i>
                         <p class="text-xs font-semibold text-slate-700">Drag & drop dermoscopy image</p>
                         <p class="text-[11px] text-slate-400 mt-0.5">or click to browse from device (JPG, PNG)</p>
                     </div>
-                    <div id="file-info" class="text-xs text-slate-600 hidden flex items-center justify-between p-2 bg-slate-100 rounded">
+                    <div id="file-info" class="text-xs text-slate-600 hidden flex items-center justify-between p-2.5 bg-slate-100 rounded-lg">
                         <span id="file-name" class="truncate max-w-[200px] font-medium">file.jpg</span>
-                        <button id="clear-file" class="text-red-500 hover:text-red-700 text-xs"><i class="fa-solid fa-times"></i></button>
+                        <button id="clear-file" class="text-red-500 hover:text-red-700 text-xs px-1"><i class="fa-solid fa-times"></i></button>
                     </div>
                 </div>
             </div>
 
-            <!-- XAI Parameters Card -->
-            <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-4">
+            <!-- Card 2: Primary Action Execution Bar -->
+            <div class="clinical-card p-4 bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/50 border-blue-100">
+                <button id="btn-diagnose" class="w-full py-3 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold rounded-xl text-xs shadow-md shadow-blue-500/25 transition-all flex items-center justify-center gap-2 transform active:scale-[0.98]">
+                    <i class="fa-solid fa-wand-magic-sparkles text-sm"></i> Run ViT Diagnosis & Attention Rollout
+                </button>
+            </div>
+
+            <!-- Card 3: XAI Parameters Card -->
+            <div class="clinical-card p-5 space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                     <h2 class="font-bold text-slate-800 text-sm flex items-center gap-2">
                         <i class="fa-solid fa-sliders text-blue-600"></i> Attention Rollout Settings
@@ -96,10 +111,10 @@
 
                 <!-- Colormap -->
                 <div>
-                    <div class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                    <div class="flex justify-between text-xs font-semibold text-slate-700 mb-1.5">
                         <span>Heatmap Colormap</span>
                     </div>
-                    <select id="xai-colormap" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                    <select id="xai-colormap" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
                         <option value="turbo" selected>Turbo (High Diagnostic Contrast)</option>
                         <option value="jet">Jet (Classic Clinical CAM)</option>
                         <option value="viridis">Viridis (Perceptually Uniform)</option>
@@ -110,49 +125,67 @@
 
                 <!-- Alpha Opacity -->
                 <div>
-                    <div class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                    <div class="flex justify-between text-xs font-semibold text-slate-700 mb-1.5">
                         <span>Heatmap Opacity (Alpha)</span>
-                        <span id="alpha-val" class="text-blue-600 font-bold">55%</span>
+                        <span id="alpha-val" class="text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">55%</span>
                     </div>
                     <input type="range" id="xai-alpha" min="0.1" max="0.9" step="0.05" value="0.55" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                 </div>
 
                 <!-- Noise Discard Ratio -->
                 <div>
-                    <div class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
-                        <span>Attention Noise Filter (Discard Ratio)</span>
-                        <span id="discard-val" class="text-blue-600 font-bold">85%</span>
+                    <div class="flex justify-between text-xs font-semibold text-slate-700 mb-1.5">
+                        <span>Attention Noise Filter (Discard)</span>
+                        <span id="discard-val" class="text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">85%</span>
                     </div>
                     <input type="range" id="xai-discard" min="0.0" max="0.95" step="0.05" value="0.85" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                     <p class="text-[10px] text-slate-400 mt-1">Suppresses lowest attention weights across transformer layers.</p>
                 </div>
 
                 <!-- Residual Checkbox -->
-                <div class="flex items-center space-x-2 pt-1">
-                    <input type="checkbox" id="xai-residual" checked class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                <div class="flex items-center space-x-2.5 pt-1">
+                    <input type="checkbox" id="xai-residual" checked class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4">
                     <label for="xai-residual" class="text-xs text-slate-700 font-medium cursor-pointer">Account for Residual Stream (\(I\))</label>
                 </div>
-
-                <!-- Primary Action Button -->
-                <button id="btn-diagnose" class="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs shadow-md transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-wand-magic-sparkles"></i> Run ViT Diagnosis & Attention Rollout
-                </button>
             </div>
+
+            <!-- Card 4: Quick Actions & Clinical Audit -->
+            <div class="clinical-card p-4 space-y-2.5 bg-slate-50/60 border-slate-200">
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Clinical Workflow Shortcuts</span>
+                <div class="grid grid-cols-1 gap-2">
+                    <button id="btn-open-deep-audit" class="w-full py-2 px-3 bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-indigo-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-2xs">
+                        <i class="fa-solid fa-file-medical"></i> View Deep Audit Workflow
+                    </button>
+                    <button id="btn-download-pdf" class="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-2xs">
+                        <i class="fa-solid fa-file-pdf text-red-400"></i> Download Certified PDF Report
+                    </button>
+                </div>
+            </div>
+
         </aside>
 
-        <!-- RIGHT MAIN CONTENT AREA -->
+        <!-- RIGHT MAIN CONTENT AREA: Diagnostic Studio -->
         <section class="lg:col-span-8 space-y-5">
             
-            <!-- Navigation Tabs -->
-            <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-4 flex space-x-6 text-xs font-medium border-b border-slate-200">
-                <button data-tab="tab-diagnosis" class="tab-btn py-3.5 active flex items-center gap-2 transition-all">
-                    <i class="fa-solid fa-stethoscope"></i> Clinical Diagnosis & XAI Inspector
+            <!-- Modern Clinical Tab Navigation Bar -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-1.5 flex flex-wrap gap-1 text-xs font-semibold">
+                <button data-tab="tab-diagnosis" class="tab-btn py-2 px-3.5 rounded-xl active flex items-center gap-2 transition-all">
+                    <i class="fa-solid fa-stethoscope"></i> Clinical Diagnosis
                 </button>
-                <button data-tab="tab-benchmark" class="tab-btn py-3.5 text-slate-500 hover:text-slate-800 flex items-center gap-2 transition-all">
-                    <i class="fa-solid fa-scale-balanced"></i> ViT vs CNN Benchmark
+                <button data-tab="tab-abcde" class="tab-btn py-2 px-3.5 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-50 flex items-center gap-2 transition-all">
+                    <i class="fa-solid fa-heart-pulse text-indigo-500"></i> ABCDE Scoring
                 </button>
-                <button data-tab="tab-layerwise" class="tab-btn py-3.5 text-slate-500 hover:text-slate-800 flex items-center gap-2 transition-all">
-                    <i class="fa-solid fa-layer-group"></i> Layer-Wise Attention Depth
+                <button data-tab="tab-counterfactual" class="tab-btn py-2 px-3.5 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-50 flex items-center gap-2 transition-all">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-500"></i> Counterfactual "What-If"
+                </button>
+                <button data-tab="tab-dullrazor" class="tab-btn py-2 px-3.5 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-50 flex items-center gap-2 transition-all">
+                    <i class="fa-solid fa-shield-halved text-emerald-500"></i> Artifact Defense
+                </button>
+                <button data-tab="tab-benchmark" class="tab-btn py-2 px-3.5 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-50 flex items-center gap-2 transition-all">
+                    <i class="fa-solid fa-scale-balanced text-blue-500"></i> ViT vs CNN
+                </button>
+                <button data-tab="tab-layerwise" class="tab-btn py-2 px-3.5 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-50 flex items-center gap-2 transition-all">
+                    <i class="fa-solid fa-layer-group text-purple-500"></i> Layer Depth
                 </button>
             </div>
 
@@ -160,22 +193,28 @@
             <div id="tab-diagnosis" class="tab-content space-y-5">
                 
                 <!-- Dual Image Viewer Panel -->
-                <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
-                    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-                            <i class="fa-solid fa-eye text-blue-600"></i> Visual Explanation & Heatmap Overlay
-                        </h3>
-                        <span id="inference-time" class="text-xs text-slate-400 font-medium">Latency: -- ms</span>
+                <div class="clinical-card p-5 space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                            <h3 class="font-bold text-slate-800 text-sm">Visual Inspection & ViT Attention Rollout</h3>
+                        </div>
+                        <span id="inference-time" class="text-xs text-slate-500 font-medium bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+                            Latency: -- ms
+                        </span>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <!-- Original Image -->
                         <div class="space-y-2 text-center">
-                            <span class="text-xs font-semibold text-slate-600 block">Input Dermoscopy Image</span>
-                            <div class="aspect-square bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center relative">
+                            <div class="flex items-center justify-between px-1">
+                                <span class="text-xs font-bold text-slate-600">Input Dermoscopy Image</span>
+                                <span class="text-[10px] text-slate-400 uppercase font-semibold">224 × 224 RGB</span>
+                            </div>
+                            <div class="aspect-square bg-slate-900 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center relative shadow-inner">
                                 <img id="img-original" src="" alt="Dermoscopy" class="w-full h-full object-cover hidden">
                                 <div id="img-original-placeholder" class="text-slate-400 text-xs flex flex-col items-center">
-                                    <i class="fa-regular fa-image text-3xl mb-2"></i>
+                                    <i class="fa-regular fa-image text-3xl mb-2 text-slate-600"></i>
                                     <span>Select an image to view</span>
                                 </div>
                             </div>
@@ -183,19 +222,36 @@
 
                         <!-- XAI Heatmap Overlay -->
                         <div class="space-y-2 text-center">
-                            <span class="text-xs font-semibold text-blue-700 block">ViT Attention Rollout Overlay</span>
-                            <div class="aspect-square bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center relative">
+                            <div class="flex items-center justify-between px-1">
+                                <span class="text-xs font-bold text-blue-700">ViT Self-Attention Rollout Overlay</span>
+                                <span class="text-[10px] text-indigo-500 uppercase font-bold">12-Layer Rollout</span>
+                            </div>
+                            <div class="aspect-square bg-slate-900 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center relative shadow-inner">
                                 <img id="img-overlay" src="" alt="Attention Overlay" class="w-full h-full object-cover hidden">
                                 <div id="img-overlay-placeholder" class="text-slate-400 text-xs flex flex-col items-center">
-                                    <i class="fa-solid fa-fire text-3xl mb-2 text-amber-400"></i>
+                                    <i class="fa-solid fa-fire text-3xl mb-2 text-amber-500/80"></i>
                                     <span>Awaiting diagnosis execution</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
+                    <!-- LIVE EXECUTION PROGRESS BAR -->
+                    <div id="scan-progress-container" class="mt-4 p-3.5 bg-indigo-50/70 rounded-xl border border-indigo-100 hidden">
+                        <div class="flex items-center justify-between text-xs font-bold text-indigo-950 mb-1.5">
+                            <span id="scan-progress-step" class="flex items-center gap-2">
+                                <i class="fa-solid fa-spinner fa-spin text-indigo-600"></i>
+                                Initializing Vision Transformer Self-Attention...
+                            </span>
+                            <span id="scan-progress-percent" class="text-indigo-600 font-extrabold">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                            <div id="scan-progress-bar" class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+
                     <!-- Artifact Diagnostics Bar -->
-                    <div id="artifact-status-box" class="mt-4 p-3 rounded-lg border text-xs flex items-center justify-between hidden">
+                    <div id="artifact-status-box" class="mt-3 p-3 rounded-xl border text-xs flex items-center justify-between hidden">
                         <div class="flex items-center gap-2">
                             <i id="artifact-icon" class="fa-solid fa-circle-check text-emerald-600 text-base"></i>
                             <div>
@@ -205,32 +261,34 @@
                         </div>
                         <div class="flex space-x-3 text-[11px] font-semibold text-slate-500">
                             <span>Central Focus: <strong id="val-central" class="text-slate-800">--%</strong></span>
-                            <span>Edge/Hair Overlap: <strong id="val-overlap" class="text-slate-800">--%</strong></span>
+                            <span>Edge Overlap: <strong id="val-overlap" class="text-slate-800">--%</strong></span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Diagnostic Results & Probability Grid -->
+                <!-- Diagnostic Results & Probability Grid (Balanced 2-Column) -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
                     
-                    <!-- Clinical Decision Card -->
-                    <div class="md:col-span-5 bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <!-- Left: Clinical Decision Card -->
+                    <div class="md:col-span-6 clinical-card p-5 flex flex-col justify-between space-y-4">
                         <div>
                             <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                                <h3 class="font-bold text-slate-800 text-sm">Diagnostic Assessment</h3>
-                                <span class="text-[11px] uppercase tracking-wider font-bold text-slate-400">ISIC Head</span>
+                                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                    <i class="fa-solid fa-stethoscope text-blue-600"></i> Diagnostic Assessment
+                                </h3>
+                                <span class="text-[10px] uppercase tracking-wider font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">ISIC Head</span>
                             </div>
                             
-                            <div id="risk-banner" class="p-3.5 rounded-xl border border-slate-200 bg-slate-50 space-y-1 mb-4">
+                            <div id="risk-banner" class="p-3.5 rounded-xl border border-slate-200 bg-slate-50 space-y-1 mb-3">
                                 <div class="flex items-center justify-between">
                                     <span id="risk-title" class="text-xs font-extrabold uppercase text-slate-700">Awaiting Input</span>
-                                    <span id="top-prob-badge" class="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">--%</span>
+                                    <span id="top-prob-badge" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700">--%</span>
                                 </div>
-                                <div id="top-class-name" class="text-base font-bold text-slate-900">--</div>
+                                <div id="top-class-name" class="text-lg font-extrabold text-slate-900">--</div>
                             </div>
 
-                            <div class="space-y-1.5 mb-3">
-                                <h4 class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                            <div class="space-y-1.5 mb-3 bg-slate-50/70 p-3 rounded-xl border border-slate-200">
+                                <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                                     <i class="fa-solid fa-notes-medical text-blue-600"></i> Clinical Guidance
                                 </h4>
                                 <p id="risk-advice" class="text-xs text-slate-600 leading-relaxed">
@@ -238,52 +296,116 @@
                                 </p>
                             </div>
 
-                            <div class="space-y-1.5 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                <div class="flex items-center justify-between">
-                                    <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                                        <i class="fa-solid fa-microscope text-indigo-600"></i> XAI Explanation Justification
-                                    </h4>
-                                    <button id="btn-open-deep-audit" class="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded border border-indigo-200 flex items-center gap-1 transition-all">
-                                        <i class="fa-solid fa-file-medical"></i> View Full Audit Workflow
-                                    </button>
-                                </div>
+                            <div class="space-y-1.5 bg-indigo-50/40 p-3 rounded-xl border border-indigo-100">
+                                <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-microscope text-indigo-600"></i> XAI Explanation Justification
+                                </h4>
                                 <p id="xai-detailed-explanation" class="text-[11px] text-slate-600 leading-normal">
                                     Awaiting scan execution to compute patch-level self-attention evidence.
                                 </p>
                             </div>
                         </div>
 
-                        <div class="pt-4 mt-4 border-t border-slate-100 text-[11px] text-slate-400 flex justify-between">
-                            <span>Architecture: ViT-B/16</span>
-                            <span>Loss: Focal Loss</span>
+                        <div class="pt-3 border-t border-slate-100 text-[11px] text-slate-400 flex justify-between font-medium">
+                            <span>Backbone: ViT-B/16 (86M params)</span>
+                            <span>Loss: Focal Cross-Entropy</span>
                         </div>
                     </div>
 
-                    <!-- Multi-Class Probability Bars -->
-                    <div class="md:col-span-7 bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-3">
+                    <!-- Right: Multi-Class Probability Bars -->
+                    <div class="md:col-span-6 clinical-card p-5 space-y-3">
                         <div class="flex items-center justify-between pb-2 border-b border-slate-100">
-                            <h3 class="font-bold text-slate-800 text-sm">Class Probability Distribution</h3>
+                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-chart-bar text-indigo-600"></i> Class Probability Distribution
+                            </h3>
                             <span class="text-xs text-slate-400 font-medium">Softmax Multi-Class</span>
                         </div>
                         <div id="prob-list" class="space-y-2.5 pt-1">
                             <!-- Populated dynamically via app.js -->
-                            <div class="text-xs text-slate-400 text-center py-6">No prediction data available.</div>
+                            <div class="text-xs text-slate-400 text-center py-8">No prediction data available. Run diagnosis above.</div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- CLINICIAN HUMAN-IN-THE-LOOP (HITL) CALIBRATION & AUDIT CARD -->
+                <div class="clinical-card p-5 space-y-4 border-indigo-100 bg-gradient-to-br from-white via-slate-50/30 to-indigo-50/20">
+                    <div class="flex flex-wrap items-center justify-between pb-2 border-b border-slate-100 gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <h3 class="font-bold text-slate-800 text-sm">Clinician Human-in-the-Loop (HITL) Feedback & Active Learning Calibration</h3>
+                        </div>
+                        <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase tracking-wide">
+                            FDA / EU AI Act Governance
+                        </span>
+                    </div>
+                    
+                    <p class="text-xs text-slate-500 leading-relaxed">
+                        Verify and calibrate the model's diagnostic findings. Submissions are committed to the persistent active learning audit trail (<code>data/clinician_hitl_feedback_audit.csv</code>).
+                    </p>
+
+                    <form id="hitl-feedback-form" class="space-y-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label class="text-[11px] font-bold text-slate-700 block mb-1">Attention Map Localization</label>
+                                <select id="hitl-attention-rating" class="w-full text-xs p-2.5 rounded-xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                                    <option value="Optimal">Optimal (Centered on Lesion)</option>
+                                    <option value="Acceptable">Acceptable (Minor Margin Bias)</option>
+                                    <option value="Distracted">Distracted (Hair/Artifact Bias)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="text-[11px] font-bold text-slate-700 block mb-1">Dermatologist Agreement</label>
+                                <select id="hitl-agreement" class="w-full text-xs p-2.5 rounded-xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                                    <option value="Agree">Agree with AI Diagnosis</option>
+                                    <option value="Disagree">Disagree (Requires Override)</option>
+                                    <option value="Borderline">Borderline / Biopsy Required</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="text-[11px] font-bold text-slate-700 block mb-1">Clinician Override Diagnosis</label>
+                                <select id="hitl-override-dx" class="w-full text-xs p-2.5 rounded-xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                                    <option value="">Confirm AI Prediction</option>
+                                    <option value="MEL">MEL - Melanoma</option>
+                                    <option value="NV">NV - Melanocytic Nevus</option>
+                                    <option value="BCC">BCC - Basal Cell Carcinoma</option>
+                                    <option value="AKIEC">AKIEC - Actinic Keratosis</option>
+                                    <option value="BKL">BKL - Benign Keratosis</option>
+                                    <option value="DF">DF - Dermatofibroma</option>
+                                    <option value="VASC">VASC - Vascular Lesion</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+                            <div class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                                <i class="fa-solid fa-shield-check text-emerald-500"></i>
+                                Audit entries are cryptographically stamped for regulatory review.
+                            </div>
+                            <button type="submit" id="btn-submit-hitl" class="py-2.5 px-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2 transition-all">
+                                <i class="fa-solid fa-stamp"></i> Record Calibration Audit
+                            </button>
+                        </div>
+                    </form>
+
+                    <div id="hitl-success-msg" class="text-xs text-emerald-700 bg-emerald-50 p-3 rounded-xl border border-emerald-200 hidden flex items-center gap-2">
+                        <i class="fa-solid fa-circle-check text-emerald-600 text-sm"></i> Clinician calibration feedback successfully logged to audit registry.
                     </div>
                 </div>
             </div>
 
             <!-- TAB 2: ViT vs CNN BENCHMARK -->
             <div id="tab-benchmark" class="tab-content space-y-5 hidden">
-                <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-4">
-                    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="clinical-card p-5 space-y-4">
+                    <div class="flex flex-wrap items-center justify-between pb-3 border-b border-slate-100 gap-2">
                         <div>
                             <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
                                 <i class="fa-solid fa-scale-balanced text-blue-600"></i> ViT vs Baseline CNN Architectural Benchmark
                             </h3>
                             <p class="text-xs text-slate-500 mt-0.5">Evaluating immunity to the "Clever Hans" artifact trap (hair, ruler markings, gel bubbles).</p>
                         </div>
-                        <button id="btn-run-benchmark" class="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow transition-all">
+                        <button id="btn-run-benchmark" class="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition-all">
                             Run Benchmark Comparison
                         </button>
                     </div>
@@ -291,32 +413,32 @@
                     <!-- 3-Way Image Comparison Grid -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                         <div>
-                            <span class="text-xs font-semibold text-slate-700 block mb-2">Input Dermoscopy</span>
-                            <div class="aspect-square bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center">
+                            <span class="text-xs font-bold text-slate-700 block mb-2">Input Dermoscopy</span>
+                            <div class="aspect-square bg-slate-900 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner">
                                 <img id="bm-img-original" src="" class="w-full h-full object-cover hidden">
                                 <span id="bm-ph-1" class="text-xs text-slate-400">Original</span>
                             </div>
                         </div>
 
                         <div>
-                            <span class="text-xs font-semibold text-emerald-700 block mb-2">ViT Attention Rollout (XAI)</span>
-                            <div class="aspect-square bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center">
+                            <span class="text-xs font-bold text-emerald-700 block mb-2">ViT Attention Rollout (XAI)</span>
+                            <div class="aspect-square bg-slate-900 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner">
                                 <img id="bm-img-vit" src="" class="w-full h-full object-cover hidden">
                                 <span id="bm-ph-2" class="text-xs text-slate-400">ViT Overlay</span>
                             </div>
-                            <div id="bm-vit-meta" class="mt-2 text-[11px] text-slate-600 hidden text-left p-2 bg-emerald-50 rounded border border-emerald-100">
+                            <div id="bm-vit-meta" class="mt-2 text-[11px] text-slate-600 hidden text-left p-2.5 bg-emerald-50 rounded-xl border border-emerald-100">
                                 <div class="font-bold text-emerald-900" id="bm-vit-pred">MEL (94.2%)</div>
                                 <div>Focus: <strong id="bm-vit-focus">89% Central</strong></div>
                             </div>
                         </div>
 
                         <div>
-                            <span class="text-xs font-semibold text-blue-700 block mb-2">Baseline CNN Grad-CAM</span>
-                            <div class="aspect-square bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center">
+                            <span class="text-xs font-bold text-blue-700 block mb-2">Baseline CNN Grad-CAM</span>
+                            <div class="aspect-square bg-slate-900 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner">
                                 <img id="bm-img-cnn" src="" class="w-full h-full object-cover hidden">
                                 <span id="bm-ph-3" class="text-xs text-slate-400">CNN Overlay</span>
                             </div>
-                            <div id="bm-cnn-meta" class="mt-2 text-[11px] text-slate-600 hidden text-left p-2 bg-blue-50 rounded border border-blue-100">
+                            <div id="bm-cnn-meta" class="mt-2 text-[11px] text-slate-600 hidden text-left p-2.5 bg-blue-50 rounded-xl border border-blue-100">
                                 <div class="font-bold text-blue-900" id="bm-cnn-pred">NV (62.1%)</div>
                                 <div>Focus: <strong id="bm-cnn-focus">45% Edge/Hair</strong></div>
                             </div>
@@ -324,35 +446,35 @@
                     </div>
 
                     <!-- Comparison Table -->
-                    <div class="pt-4 border-t border-slate-100">
-                        <table class="w-full text-xs text-left border border-slate-200 rounded-lg overflow-hidden">
+                    <div class="pt-3 border-t border-slate-100">
+                        <table class="w-full text-xs text-left border border-slate-200 rounded-xl overflow-hidden">
                             <thead class="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
                                 <tr>
-                                    <th class="p-2.5">Architectural Property</th>
-                                    <th class="p-2.5 text-emerald-700">Vision Transformer (ViT) [Proposed]</th>
-                                    <th class="p-2.5 text-blue-700">Baseline CNN (ResNet/ConvNet)</th>
+                                    <th class="p-3">Architectural Property</th>
+                                    <th class="p-3 text-emerald-700">Vision Transformer (ViT) [Proposed]</th>
+                                    <th class="p-3 text-blue-700">Baseline CNN (ResNet/ConvNet)</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-200 text-slate-600">
                                 <tr>
-                                    <td class="p-2.5 font-medium">Receptive Field Scope</td>
-                                    <td class="p-2.5 font-semibold text-emerald-700">Global (Self-Attention across all 16x16 patches)</td>
-                                    <td class="p-2.5">Local (3x3 sliding convolution kernels)</td>
+                                    <td class="p-3 font-semibold text-slate-800">Receptive Field Scope</td>
+                                    <td class="p-3 font-semibold text-emerald-700">Global (Self-Attention across all 16×16 patches)</td>
+                                    <td class="p-3">Local (3×3 sliding convolution kernels)</td>
                                 </tr>
                                 <tr>
-                                    <td class="p-2.5 font-medium">Explainability Technique</td>
-                                    <td class="p-2.5 font-semibold text-emerald-700">Multi-Layer Attention Rollout (Full Token Flow)</td>
-                                    <td class="p-2.5">Grad-CAM (Coarse gradient pooling at final layer)</td>
+                                    <td class="p-3 font-semibold text-slate-800">Explainability Technique</td>
+                                    <td class="p-3 font-semibold text-emerald-700">Multi-Layer Attention Rollout (Full Token Flow)</td>
+                                    <td class="p-3">Grad-CAM (Coarse gradient pooling at final layer)</td>
                                 </tr>
                                 <tr>
-                                    <td class="p-2.5 font-medium">Hair/Ruler Artifact Susceptibility</td>
-                                    <td class="p-2.5 font-semibold text-emerald-700">Low (Attends to global lesion morphology)</td>
-                                    <td class="p-2.5 text-amber-700">High (Prone to Clever Hans background shortcuts)</td>
+                                    <td class="p-3 font-semibold text-slate-800">Hair/Ruler Artifact Susceptibility</td>
+                                    <td class="p-3 font-semibold text-emerald-700">Low (Attends to global lesion morphology)</td>
+                                    <td class="p-3 text-amber-700 font-medium">High (Prone to Clever Hans background shortcuts)</td>
                                 </tr>
                                 <tr>
-                                    <td class="p-2.5 font-medium">Melanoma Sensitivity</td>
-                                    <td class="p-2.5 font-semibold text-emerald-700">94.2%</td>
-                                    <td class="p-2.5">87.6%</td>
+                                    <td class="p-3 font-semibold text-slate-800">Melanoma Sensitivity</td>
+                                    <td class="p-3 font-semibold text-emerald-700">94.2%</td>
+                                    <td class="p-3">87.6%</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -362,34 +484,179 @@
 
             <!-- TAB 3: LAYER-WISE ATTENTION DEPTH -->
             <div id="tab-layerwise" class="tab-content space-y-5 hidden">
-                <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-4">
-                    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="clinical-card p-5 space-y-4">
+                    <div class="flex flex-wrap items-center justify-between pb-3 border-b border-slate-100 gap-2">
                         <div>
                             <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
                                 <i class="fa-solid fa-layer-group text-blue-600"></i> Transformer Layer-by-Layer Attention Depth
                             </h3>
                             <p class="text-xs text-slate-500 mt-0.5">Observe how visual attention evolves from local low-level patches to high-level tumor morphology across encoder blocks.</p>
                         </div>
-                        <button id="btn-run-layerwise" class="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow transition-all">
+                        <button id="btn-run-layerwise" class="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition-all">
                             Compute Depth Breakdown
                         </button>
                     </div>
 
                     <div id="layerwise-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                        <div class="col-span-full text-xs text-slate-400 py-8">Click "Compute Depth Breakdown" to generate layer-wise rollout maps.</div>
+                        <div class="col-span-full text-xs text-slate-400 py-12">Click "Compute Depth Breakdown" to generate layer-wise rollout maps.</div>
                     </div>
                 </div>
             </div>
 
+            <!-- TAB 4: ABCDE CRITERIA VS BLACK-BOX COMPARISON -->
+            <div id="tab-abcde" class="tab-content space-y-5 hidden">
+                <div class="clinical-card p-5 space-y-4">
+                    <div class="flex flex-wrap items-center justify-between pb-3 border-b border-slate-100 gap-2">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-heart-pulse text-indigo-600"></i> Automated ABCDE Dermatological Criteria vs. Black-Box Deep Learning
+                            </h3>
+                            <p class="text-xs text-slate-500 mt-0.5">Quantitative morphological evaluation grounded in international dermatological diagnosis guidelines.</p>
+                        </div>
+                        <span class="text-xs font-bold px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200">
+                            Clinical Grounding
+                        </span>
+                    </div>
+
+                    <!-- ABCDE Score Cards Grid -->
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-center">
+                            <span class="text-[10px] text-slate-400 uppercase font-bold block">A • Asymmetry</span>
+                            <span id="abcde-a-val" class="text-lg font-bold text-indigo-600 block my-1">--</span>
+                            <span id="abcde-a-lvl" class="text-[10px] text-slate-500 block">Awaiting Scan</span>
+                        </div>
+                        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-center">
+                            <span class="text-[10px] text-slate-400 uppercase font-bold block">B • Border</span>
+                            <span id="abcde-b-val" class="text-lg font-bold text-indigo-600 block my-1">--</span>
+                            <span id="abcde-b-lvl" class="text-[10px] text-slate-500 block">Awaiting Scan</span>
+                        </div>
+                        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-center">
+                            <span class="text-[10px] text-slate-400 uppercase font-bold block">C • Color</span>
+                            <span id="abcde-c-val" class="text-lg font-bold text-indigo-600 block my-1">--</span>
+                            <span id="abcde-c-lvl" class="text-[10px] text-slate-500 block">Awaiting Scan</span>
+                        </div>
+                        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-center">
+                            <span class="text-[10px] text-slate-400 uppercase font-bold block">D • Diameter</span>
+                            <span id="abcde-d-val" class="text-lg font-bold text-indigo-600 block my-1">--</span>
+                            <span id="abcde-d-lvl" class="text-[10px] text-slate-500 block">Awaiting Scan</span>
+                        </div>
+                        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-center col-span-2 sm:col-span-1">
+                            <span class="text-[10px] text-slate-400 uppercase font-bold block">TDS Total Score</span>
+                            <span id="abcde-tds-val" class="text-lg font-bold text-emerald-600 block my-1">--</span>
+                            <span id="abcde-tds-lvl" class="text-[10px] text-slate-500 block">Awaiting Scan</span>
+                        </div>
+                    </div>
+
+                    <!-- Gemini Head-to-Head Comparative Verdict -->
+                    <div class="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-100 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <h4 class="font-bold text-xs text-indigo-950 flex items-center gap-1.5">
+                                <i class="fa-solid fa-scale-balanced text-indigo-600"></i>
+                                Gemini 2.5 Flash Verdict: ABCDE-Explainable ViT vs. Black-Box CNN
+                            </h4>
+                            <span class="text-[10px] text-indigo-600 font-semibold bg-white/70 px-2 py-0.5 rounded border border-indigo-200">Examiner Defense</span>
+                        </div>
+                        <p id="abcde-verdict-text" class="text-xs text-indigo-900 leading-relaxed">
+                            Run a scan to see Gemini's comparative analysis on why clinical ABCDE morphological grounding provides superior medical safety compared to uninterpretable black-box neural networks.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 5: COUNTERFACTUAL WHAT-IF REASONING -->
+            <div id="tab-counterfactual" class="tab-content space-y-5 hidden">
+                <div class="clinical-card p-5 space-y-4">
+                    <div class="flex flex-wrap items-center justify-between pb-3 border-b border-slate-100 gap-2">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-wand-magic-sparkles text-amber-500"></i> Counterfactual "What-If" Perturbation Analysis
+                            </h3>
+                            <p class="text-xs text-slate-500 mt-0.5">Tests causality: What happens to the classification when high-attention morphological patches are suppressed?</p>
+                        </div>
+                        <button id="btn-run-counterfactual" class="py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-md transition-all">
+                            Run Counterfactual Test
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
+                        <div>
+                            <span class="text-xs font-bold text-slate-700 block mb-2">Original Input Dermoscopy</span>
+                            <div class="aspect-square bg-slate-900 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner">
+                                <img id="cf-img-orig" src="" class="w-full h-full object-cover hidden">
+                                <span id="cf-ph-1" class="text-xs text-slate-400">Awaiting original image</span>
+                            </div>
+                            <div id="cf-meta-orig" class="mt-2 text-xs text-slate-700 font-semibold hidden">--</div>
+                        </div>
+
+                        <div>
+                            <span class="text-xs font-bold text-amber-700 block mb-2">High-Attention Core Suppressed (Perturbed)</span>
+                            <div class="aspect-square bg-slate-900 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner">
+                                <img id="cf-img-pert" src="" class="w-full h-full object-cover hidden">
+                                <span id="cf-ph-2" class="text-xs text-slate-400">Awaiting perturbation test</span>
+                            </div>
+                            <div id="cf-meta-pert" class="mt-2 text-xs text-slate-700 font-semibold hidden">--</div>
+                        </div>
+                    </div>
+
+                    <div id="cf-interpretation-box" class="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs hidden leading-relaxed">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 6: CLEVER HANS ARTIFACT DEFENSE (DULLRAZOR) -->
+            <div id="tab-dullrazor" class="tab-content space-y-5 hidden">
+                <div class="clinical-card p-5 space-y-4">
+                    <div class="flex flex-wrap items-center justify-between pb-3 border-b border-slate-100 gap-2">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-shield-halved text-emerald-600"></i> Clever Hans Artifact Defense & DullRazor Inpainting
+                            </h3>
+                            <p class="text-xs text-slate-500 mt-0.5">Removes hair and surgical marker artifacts digitally to prove prediction stability against background shortcuts.</p>
+                        </div>
+                        <button id="btn-run-dullrazor" class="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition-all">
+                            Neutralize Artifacts
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+                        <div>
+                            <span class="text-xs font-bold text-slate-700 block mb-2">Raw Dermoscopy (With Artifacts)</span>
+                            <div class="aspect-square bg-slate-900 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner">
+                                <img id="dr-img-raw" src="" class="w-full h-full object-cover hidden">
+                                <span id="dr-ph-1" class="text-xs text-slate-400">Raw Scan</span>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-emerald-700 block mb-2">DullRazor Inpainted (Cleaned)</span>
+                            <div class="aspect-square bg-slate-900 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner">
+                                <img id="dr-img-clean" src="" class="w-full h-full object-cover hidden">
+                                <span id="dr-ph-2" class="text-xs text-slate-400">Cleaned Scan</span>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-blue-700 block mb-2">Post-Neutralization ViT Rollout</span>
+                            <div class="aspect-square bg-slate-900 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner">
+                                <img id="dr-img-overlay" src="" class="w-full h-full object-cover hidden">
+                                <span id="dr-ph-3" class="text-xs text-slate-400">Post-Clean Overlay</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="dr-stats-box" class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 text-xs hidden flex items-center justify-between">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
         </section>
     </main>
 
     <!-- FLOATING GEMINI AI DERMATOLOGY CHATBOT -->
-    <div id="chatbot-container" class="fixed bottom-5 right-5 z-50">
+    <div id="chatbot-container" class="fixed bottom-6 right-6 z-40">
         <!-- Chat Toggle Button -->
-        <button id="chatbot-toggle-btn" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-4 rounded-full shadow-xl flex items-center gap-2 transition-all transform hover:scale-105">
+        <button id="chatbot-toggle-btn" class="bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 px-4 rounded-full shadow-2xl flex items-center gap-2.5 transition-all transform hover:scale-105 border border-white/20">
             <i class="fa-solid fa-robot text-lg"></i>
-            <span class="text-xs">Ask Gemini AI</span>
+            <span class="text-xs tracking-wide">Ask Gemini AI</span>
             <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
         </button>
 
@@ -413,7 +680,7 @@
 
             <!-- Messages Stream -->
             <div id="chat-messages" class="flex-1 p-3.5 space-y-3 overflow-y-auto bg-slate-50">
-                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-1">
+                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-1">
                     <div class="font-bold text-indigo-600 text-[11px] flex items-center gap-1">
                         <i class="fa-solid fa-robot"></i> Gemini Medical Assistant
                     </div>
@@ -437,6 +704,8 @@
                 </button>
             </form>
         </div>
+    </div>
+
     <!-- DEEP CLINICAL XAI AUDIT MODAL -->
     <div id="deep-audit-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -460,7 +729,7 @@
             <div class="flex-1 overflow-y-auto p-5 space-y-5 text-xs text-slate-700 bg-slate-50">
                 
                 <!-- Section 1: Step-by-Step Inference Pipeline -->
-                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
                     <h4 class="font-bold text-slate-800 flex items-center gap-2 text-xs">
                         <i class="fa-solid fa-diagram-project text-blue-600"></i>
                         1. Four-Stage Diagnostic Pipeline
@@ -486,7 +755,7 @@
                 </div>
 
                 <!-- Section 2: Mathematical Evidence -->
-                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2.5">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2.5">
                     <h4 class="font-bold text-slate-800 flex items-center gap-2 text-xs">
                         <i class="fa-solid fa-calculator text-indigo-600"></i>
                         2. Quantitative Attention Metrics for Current Scan
@@ -506,7 +775,7 @@
                 </div>
 
                 <!-- Section 3: Gemini Clinical Reasoning Justification -->
-                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2">
                     <h4 class="font-bold text-slate-800 flex items-center gap-2 text-xs">
                         <i class="fa-solid fa-user-doctor text-emerald-600"></i>
                         3. AI Dermatological Synthesis & ABCDE Rationale
@@ -517,7 +786,7 @@
                 </div>
 
                 <!-- Section 4: Clinical Recommendation Action -->
-                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2">
                     <h4 class="font-bold text-slate-800 flex items-center gap-2 text-xs">
                         <i class="fa-solid fa-clipboard-check text-blue-600"></i>
                         4. Actionable Diagnostic Advice
@@ -531,7 +800,7 @@
 
             <!-- Modal Footer -->
             <div class="p-3 bg-slate-100 border-t border-slate-200 flex justify-end">
-                <button id="btn-modal-dismiss" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-lg text-xs transition-all">
+                <button id="btn-modal-dismiss" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-xl text-xs transition-all">
                     Close Audit Report
                 </button>
             </div>
@@ -546,6 +815,6 @@
     </footer>
 
     <!-- App JavaScript (cache-busted) -->
-    <script src="/static/app.js?v=20261006_03"></script>
+    <script src="/static/app.js?v=20261006_10"></script>
 </body>
 </html>

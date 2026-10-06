@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import timm
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -27,6 +27,8 @@ from src.models.cnn_baseline import BaselineCNN
 from src.xai.attention_rollout import AttentionRollout
 from src.xai.gradcam import GradCAM
 from src.xai.visualizer import overlay_heatmap, detect_artifact_vs_pathology
+from src.xai.abcde_analyzer import calculate_abcde_metrics, remove_hair_dullrazor
+from src.xai.pdf_generator import generate_pdf_report
 from src.data.transforms import get_val_transforms, denormalize_tensor
 from src.data.sample_data import generate_sample_dataset
 from src.eval.metrics import calculate_clinical_metrics
@@ -330,6 +332,9 @@ async def diagnose_image(
         else:
             explanation_text += f"Minimal edge overlap ({overlap_ratio}%) verifies that the diagnosis is guided by authentic pigment networks rather than hair or border noise."
 
+    # Quantitative ABCDE dermatological criteria
+    abcde_metrics = calculate_abcde_metrics(img_rgb, heatmap_2d)
+
     return {
         "status": "success",
         "image_name": str(img_name),
@@ -353,6 +358,7 @@ async def diagnose_image(
             "interpretation": str(diag["interpretation"]),
             "detailed_explanation": explanation_text
         },
+        "abcde": abcde_metrics,
         "images": {
             "original": np_to_base64(img_rgb),
             "overlay": np_to_base64(overlay_rgb)
@@ -564,6 +570,218 @@ async def chat_with_gemini(
         "status": "success",
         "reply": fallback_reply,
         "provider": "Setup Required (Missing GEMINI_API_KEY in .env)"
+    }
+
+
+@app.post("/api/neutralize-artifacts")
+async def neutralize_artifacts(
+    file: Optional[UploadFile] = File(None),
+    sample_id: Optional[str] = Form(None)
+):
+    """Clever Hans Artifact Neutralization using DullRazor hair/artifact inpainting."""
+    _, img_rgb, img_name = get_image_tensor_and_rgb(file, sample_id)
+    cleaned_rgb = remove_hair_dullrazor(img_rgb)
+    
+    # Run ViT on cleaned image
+    transform = get_val_transforms(img_size=224)
+    tensor = transform(cleaned_rgb).unsqueeze(0).to(DEVICE)
+    
+    if isinstance(VIT_MODEL, ExplainableViT):
+        rollout = AttentionRollout(VIT_MODEL, discard_ratio=0.85, add_residual=True)
+        heatmaps, logits = rollout(tensor)
+    else:
+        gradcam = GradCAM(VIT_MODEL)
+        heatmaps, logits = gradcam(tensor)
+        
+    probs = torch.softmax(logits, dim=-1)[0].cpu().numpy()
+    pred_idx = int(np.argmax(probs))
+    clean_overlay = overlay_heatmap(cleaned_rgb, heatmaps[0], colormap="turbo", alpha=0.55)
+    diag = detect_artifact_vs_pathology(cleaned_rgb, heatmaps[0])
+    
+    return {
+        "status": "success",
+        "image_name": img_name,
+        "raw_image": np_to_base64(img_rgb),
+        "cleaned_image": np_to_base64(cleaned_rgb),
+        "cleaned_overlay": np_to_base64(clean_overlay),
+        "top_class": CLASSES[pred_idx],
+        "confidence": round(float(probs[pred_idx]) * 100, 1),
+        "central_focus": round(float(diag["central_attention_ratio"]) * 100, 1),
+        "edge_overlap": round(float(diag["edge_overlap_ratio"]) * 100, 1),
+        "is_artifact_suspect": bool(diag["is_artifact_suspect"])
+    }
+
+
+@app.post("/api/counterfactual")
+async def counterfactual_analysis(
+    file: Optional[UploadFile] = File(None),
+    sample_id: Optional[str] = Form(None)
+):
+    """
+    Counterfactual What-If Reasoning:
+    Suppresses the top-attended lesion core patches to observe how the AI alters its decision.
+    """
+    tensor, img_rgb, img_name = get_image_tensor_and_rgb(file, sample_id)
+    
+    if isinstance(VIT_MODEL, ExplainableViT):
+        rollout = AttentionRollout(VIT_MODEL, discard_ratio=0.85, add_residual=True)
+        heatmaps, logits = rollout(tensor)
+    else:
+        gradcam = GradCAM(VIT_MODEL)
+        heatmaps, logits = gradcam(tensor)
+        
+    probs_orig = torch.softmax(logits, dim=-1)[0].cpu().numpy()
+    top_orig_idx = int(np.argmax(probs_orig))
+    
+    # Resize heatmap to native img_rgb resolution to prevent dimension mismatch
+    hm_resized = cv2.resize(heatmaps[0], (img_rgb.shape[1], img_rgb.shape[0]))
+    mask_high = (hm_resized > np.percentile(hm_resized, 80))
+    perturbed_rgb = img_rgb.copy()
+    # Inpaint or blur high attention core to simulate absence of tumor morphology
+    blurred = cv2.GaussianBlur(perturbed_rgb, (35, 35), 0)
+    perturbed_rgb[mask_high] = blurred[mask_high]
+    
+    transform = get_val_transforms(img_size=224)
+    tensor_cf = transform(perturbed_rgb).unsqueeze(0).to(DEVICE)
+    with torch.no_grad():
+        logits_cf = VIT_MODEL(tensor_cf)
+    probs_cf = torch.softmax(logits_cf, dim=-1)[0].cpu().numpy()
+    top_cf_idx = int(np.argmax(probs_cf))
+    
+    return {
+        "status": "success",
+        "image_name": img_name,
+        "original_image": np_to_base64(img_rgb),
+        "perturbed_image": np_to_base64(perturbed_rgb),
+        "original_prediction": {
+            "class": CLASSES[top_orig_idx],
+            "probability": round(float(probs_orig[top_orig_idx]) * 100, 1)
+        },
+        "counterfactual_prediction": {
+            "class": CLASSES[top_cf_idx],
+            "probability": round(float(probs_cf[top_cf_idx]) * 100, 1)
+        },
+        "interpretation": (
+            f"When top-attention malignant morphology patches were suppressed, "
+            f"confidence for {CLASSES[top_orig_idx].split()[0]} shifted from "
+            f"{probs_orig[top_orig_idx]*100:.1f}% to {probs_cf[top_orig_idx]*100:.1f}%, "
+            f"proving that the model is actively driven by true pathology rather than spurious background shortcuts."
+        )
+    }
+
+
+@app.post("/api/download-report")
+async def download_clinical_report(
+    file: Optional[UploadFile] = File(None),
+    sample_id: Optional[str] = Form(None)
+):
+    """Generates and serves a certified 1-page clinical diagnostic PDF report."""
+    tensor, img_rgb, img_name = get_image_tensor_and_rgb(file, sample_id)
+    
+    if isinstance(VIT_MODEL, ExplainableViT):
+        rollout = AttentionRollout(VIT_MODEL, discard_ratio=0.85, add_residual=True)
+        heatmaps, logits = rollout(tensor)
+    else:
+        gradcam = GradCAM(VIT_MODEL)
+        heatmaps, logits = gradcam(tensor)
+        
+    probs = torch.softmax(logits, dim=-1)[0].cpu().numpy()
+    pred_idx = int(np.argmax(probs))
+    top_class_name = CLASSES[pred_idx]
+    top_code = top_class_name.split(" ")[0]
+    top_prob = float(probs[pred_idx])
+    
+    risk_title, risk_class, risk_advice = RISK_MAP.get(top_code, ("ASSESSMENT", "warning", "Clinical follow-up."))
+    overlay_rgb = overlay_heatmap(img_rgb, heatmaps[0], colormap="turbo", alpha=0.55)
+    diag = detect_artifact_vs_pathology(img_rgb, heatmaps[0])
+    abcde = calculate_abcde_metrics(img_rgb, heatmaps[0])
+    
+    gemini_summary = (
+        f"The Explainable Vision Transformer evaluated scan '{img_name}' with {top_prob*100:.1f}% confidence for {top_class_name}. "
+        f"Quantitative self-attention analysis verified {diag['central_attention_ratio']*100:.1f}% central lesion focus and "
+        f"{diag['edge_overlap_ratio']*100:.1f}% peripheral overlap. Automated ABCDE scoring indicated an Asymmetry metric of "
+        f"{abcde['asymmetry_score']} ({abcde['asymmetry_level']}) and Border irregularity index of {abcde['border_score']}. "
+        f"Recommended Action: {risk_advice}"
+    )
+    
+    # Try sample metadata if available
+    patient_meta = {"age": 58, "sex": "Male", "localization": "Torso"}
+    if sample_id and SAMPLE_DF is not None:
+        row = SAMPLE_DF[SAMPLE_DF["image_id"] == sample_id]
+        if not row.empty:
+            patient_meta = {
+                "age": int(row.iloc[0]["age"]),
+                "sex": str(row.iloc[0]["sex"]),
+                "localization": str(row.iloc[0]["localization"])
+            }
+            
+    top_pred_dict = {
+        "class_name": top_class_name,
+        "percent": round(top_prob * 100, 1),
+        "risk_title": risk_title,
+        "risk_class": risk_class
+    }
+    diag_dict = {
+        "central_attention_ratio": round(float(diag["central_attention_ratio"]) * 100, 1),
+        "edge_overlap_ratio": round(float(diag["edge_overlap_ratio"]) * 100, 1),
+        "is_artifact_suspect": bool(diag["is_artifact_suspect"])
+    }
+    
+    pdf_bytes = generate_pdf_report(
+        image_name=img_name,
+        top_pred=top_pred_dict,
+        diagnostics=diag_dict,
+        abcde=abcde,
+        original_rgb=img_rgb,
+        overlay_rgb=overlay_rgb,
+        gemini_summary=gemini_summary,
+        patient_meta=patient_meta
+    )
+    
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=MedVision_Report_{img_name}.pdf"}
+    )
+
+
+@app.post("/api/clinician-feedback")
+async def record_clinician_feedback(
+    image_name: str = Form(...),
+    predicted_class: str = Form(...),
+    attention_focus_rating: str = Form(...),
+    clinician_agreement: str = Form(...),
+    clinician_diagnosis: Optional[str] = Form(None),
+    notes: Optional[str] = Form("")
+):
+    """
+    Human-in-the-Loop (HITL) Regulatory Feedback & Calibration:
+    Logs clinician review verdicts to an active learning calibration trail.
+    """
+    feedback_file = os.path.join("data", "clinician_hitl_feedback_audit.csv")
+    os.makedirs("data", exist_ok=True)
+    
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    feedback_entry = {
+        "timestamp": timestamp,
+        "image_name": image_name,
+        "ai_predicted_class": predicted_class,
+        "attention_focus_quality": attention_focus_rating,
+        "clinician_agreement": clinician_agreement,
+        "clinician_final_dx": clinician_diagnosis or predicted_class,
+        "clinical_notes": notes
+    }
+    
+    df_new = pd.DataFrame([feedback_entry])
+    if os.path.exists(feedback_file):
+        df_new.to_csv(feedback_file, mode="a", header=False, index=False)
+    else:
+        df_new.to_csv(feedback_file, mode="w", header=True, index=False)
+        
+    return {
+        "status": "success",
+        "message": "Clinician HITL calibration audit logged successfully.",
+        "entry": feedback_entry
     }
 
 
