@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate")
     parser.add_argument("--loss_type", type=str, default="focal", choices=["focal", "ce"], help="Loss function")
     parser.add_argument("--checkpoint_dir", type=str, default="checkpoints", help="Directory to save checkpoints")
+    parser.add_argument("--resume", type=str, default="checkpoints/vit_lesion_classifier_best.pt", help="Path to checkpoint to resume training from")
     args = parser.parse_args()
 
     # Generate sample dataset if data does not exist
@@ -69,6 +70,18 @@ def main():
     else:
         model = BaselineCNN(num_classes=len(class_names))
         tag = "cnn_baseline"
+
+    if args.resume and os.path.exists(args.resume):
+        print(f"[*] Resuming from existing checkpoint: {args.resume}")
+        try:
+            ckpt = torch.load(args.resume, map_location=device, weights_only=False)
+            if "model_state_dict" in ckpt:
+                model.load_state_dict(ckpt["model_state_dict"], strict=False)
+            else:
+                model.load_state_dict(ckpt, strict=False)
+            print("    Checkpoint weights successfully loaded.")
+        except Exception as e:
+            print(f"[!] Warning loading checkpoint: {e}")
 
     config = TrainingConfig(
         epochs=args.epochs,

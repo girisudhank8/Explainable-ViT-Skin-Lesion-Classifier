@@ -1,4 +1,4 @@
-﻿"""
+"""
 Optimized Training Script for ISIC 2024 Challenge: 3D Total Body Photography Skin Lesion Dataset.
 - Uses Smoothed Sqrt Class Weights (prevents rare-class distortion).
 - Balanced cohort sampling with Full Stratified Validation.
@@ -186,6 +186,7 @@ def main():
     parser.add_argument("--lr_head", type=float, default=1e-3)
     parser.add_argument("--lr_full", type=float, default=6e-5)
     parser.add_argument("--checkpoint_dir", default="checkpoints")
+    parser.add_argument("--resume", default="checkpoints/isic2024_vit_best.pt", help="Path to checkpoint .pt to resume training from")
     args = parser.parse_args()
 
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -231,6 +232,22 @@ def main():
 
     # Initialize model
     model = TransferLesionClassifier(num_classes=7, backbone=args.backbone, pretrained=True).to(DEVICE)
+    if args.resume and os.path.exists(args.resume):
+        print(f"[*] Resuming from existing checkpoint: {args.resume}", flush=True)
+        try:
+            ckpt = torch.load(args.resume, map_location=DEVICE, weights_only=False)
+            if "model_state_dict" in ckpt:
+                model.load_state_dict(ckpt["model_state_dict"], strict=False)
+                if "metrics" in ckpt:
+                    best_f1 = ckpt["metrics"].get("macro_f1", -1.0)
+                    best_pauc = ckpt["metrics"].get("pauc_80", -1.0)
+                    print(f"    Loaded previous best Macro-F1: {best_f1:.4f}, pAUC: {best_pauc:.4f}", flush=True)
+            else:
+                model.load_state_dict(ckpt, strict=False)
+            print("    Checkpoint weights successfully loaded.", flush=True)
+        except Exception as e:
+            print(f"[!] Warning loading resume checkpoint: {e}", flush=True)
+
     criterion = FocalLoss(gamma=2.0, weight=class_weights)
     os.makedirs(args.checkpoint_dir, exist_ok=True)
 
