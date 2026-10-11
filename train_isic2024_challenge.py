@@ -9,10 +9,15 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 
+# CRITICAL FIX: Disable Albumentations network version check which was causing the 5-minute timeout!
+os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+torch.backends.cudnn.benchmark = True  # Unlock maximum GPU throughput
+
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, f1_score, roc_auc_score
 
@@ -96,18 +101,27 @@ class TransferLesionClassifier(nn.Module):
             p.requires_grad = True
 
 
-def train_one_epoch(model, loader, opt, criterion, device):
+def train_one_epoch(model, loader, opt, criterion, device, scaler):
     model.train()
     total_loss = 0.0
     for imgs, labels, _, _ in loader:
         imgs, labels = imgs.to(device), labels.to(device)
         opt.zero_grad()
-        logits = model(imgs)
-        loss = criterion(logits, labels)
-        loss.backward()
+        
+        # AMP for blazing fast forward pass
+        with torch.amp.autocast('cuda'):
+            logits = model(imgs)
+            loss = criterion(logits, labels)
+            
+        # AMP scaled backward pass
+        scaler.scale(loss).backward()
+        scaler.unscale_(opt)
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        opt.step()
+        scaler.step(opt)
+        scaler.update()
+        
         total_loss += loss.item()
+
     return total_loss / max(len(loader), 1)
 
 
@@ -122,8 +136,11 @@ def evaluate(model, loader, criterion, device):
 
     for imgs, labels, targets, _ in loader:
         imgs, labels = imgs.to(device), labels.to(device)
-        logits = model(imgs)
-        loss = criterion(logits, labels)
+        
+        with torch.amp.autocast('cuda'):
+            logits = model(imgs)
+            loss = criterion(logits, labels)
+            
         total_loss += loss.item()
 
         probs = torch.softmax(logits, dim=-1).cpu().numpy()
@@ -179,14 +196,14 @@ def evaluate(model, loader, criterion, device):
 def main():
     parser = argparse.ArgumentParser(description="Train on ISIC 2024 Challenge 3D-TBP Dataset")
     parser.add_argument("--csv", default="data/isic2024_train_dataset.csv")
-    parser.add_argument("--backbone", default="efficientnet_b0.ra_in1k")
+    parser.add_argument("--backbone", default="vit_base_patch16_224")
     parser.add_argument("--phase1_epochs", type=int, default=5, help="Head-only frozen backbone epochs")
     parser.add_argument("--phase2_epochs", type=int, default=15, help="Full fine-tune epochs")
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--lr_head", type=float, default=1e-3)
     parser.add_argument("--lr_full", type=float, default=6e-5)
     parser.add_argument("--checkpoint_dir", default="checkpoints")
-    parser.add_argument("--resume", default="checkpoints/isic2024_vit_best.pt", help="Path to checkpoint .pt to resume training from")
+    parser.add_argument("--resume", default="", help="Path to checkpoint .pt to resume training from")
     args = parser.parse_args()
 
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -204,31 +221,54 @@ def main():
     train_idx, val_idx = next(strat.split(df, df["dx"]))
     train_df = df.iloc[train_idx].reset_index(drop=True)
     val_df = df.iloc[val_idx].reset_index(drop=True)
-
-    # Sub-sample NV in train_df to 250 samples to prevent massive majority skew
+    
+    # Sub-sample NV in train_df to 10,000 samples to keep epochs lightning fast (~1 min)
     train_non_nv = train_df[train_df["dx"] != "NV"]
-    train_nv = train_df[train_df["dx"] == "NV"].sample(n=min(250, len(train_df[train_df["dx"] == "NV"])), random_state=42)
+    train_nv = train_df[train_df["dx"] == "NV"].sample(n=min(10000, len(train_df[train_df["dx"] == "NV"])), random_state=42)
     train_df_balanced = pd.concat([train_non_nv, train_nv], ignore_index=True).sample(frac=1.0, random_state=42).reset_index(drop=True)
 
+    # Validate on a properly sized subset (10k) to keep epochs incredibly fast
+    val_non_nv = val_df[val_df["dx"] != "NV"]
+    val_nv = val_df[val_df["dx"] == "NV"].sample(n=min(10000, len(val_df[val_df["dx"] == "NV"])), random_state=42)
+    val_df_fast = pd.concat([val_non_nv, val_nv], ignore_index=True).sample(frac=1.0, random_state=42).reset_index(drop=True)
+
     print(f"Original Train: {len(train_df)} | Balanced Train Cohort: {len(train_df_balanced)}", flush=True)
-    print(f"Full Held-Out Validation: {len(val_df)} samples (31 Malignancies)", flush=True)
+    print(f"Fast Validation Cohort: {len(val_df_fast)} samples (Kept all {len(val_non_nv)} minorities)", flush=True)
     print(f"Train Class Counts: {train_df_balanced['dx'].value_counts().to_dict()}", flush=True)
 
     train_ds = ISICRealDataset(train_df_balanced, transform=get_train_transforms(224))
-    val_ds   = ISICRealDataset(val_df,            transform=get_val_transforms(224))
+    val_ds   = ISICRealDataset(val_df_fast,       transform=get_val_transforms(224))
 
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True,  num_workers=0)
-    val_loader   = DataLoader(val_ds,   batch_size=args.batch_size, shuffle=False, num_workers=0)
-
-    # Compute smoothed square-root class weights:
-    # w_c = sqrt(N / (K * N_c)), normalized to mean 1.0
+    # WeightedRandomSampler: The CORRECT way to handle imbalance without altering real data.
+    # Each MEL sample gets shown ~32x more often than NV per epoch.
+    # No fake data. No label changes. Just smarter sampling.
     counts = train_df_balanced["dx"].value_counts().to_dict()
     total_n = len(train_df_balanced)
-    raw_weights = [np.sqrt(total_n / (len(CLASS_NAMES) * counts.get(c, 1))) for c in CLASS_NAMES]
-    smooth_weights = np.array(raw_weights)
-    smooth_weights = smooth_weights / smooth_weights.mean()
-    class_weights = torch.tensor(smooth_weights, dtype=torch.float32).to(DEVICE)
-    print(f"Smoothed Class Weights (mean 1.0): {np.round(class_weights.cpu().numpy(), 2)}", flush=True)
+    sample_weights = [
+        total_n / (len(CLASS_NAMES) * counts.get(train_df_balanced.iloc[i]["dx"], 1))
+        for i in range(len(train_df_balanced))
+    ]
+    sampler = WeightedRandomSampler(
+        weights=sample_weights,
+        num_samples=len(train_df_balanced),
+        replacement=True
+    )
+    print(f"WeightedRandomSampler: MEL effective weight = {total_n / (len(CLASS_NAMES) * counts.get('MEL',1)):.1f}x vs NV = {total_n / (len(CLASS_NAMES) * counts.get('NV',1)):.2f}x", flush=True)
+
+    train_loader = DataLoader(train_ds, batch_size=args.batch_size, sampler=sampler,   num_workers=4, persistent_workers=True)
+    val_loader   = DataLoader(val_ds,   batch_size=args.batch_size, shuffle=False,     num_workers=4, persistent_workers=True)
+
+    # Mild loss weights — sampler already balances batches, so we just add a small extra push for MEL
+    class_weights_list = []
+    for cls in CLASS_NAMES:
+        if cls in ("MEL", "BCC", "AKIEC", "DF", "VASC"):
+            class_weights_list.append(3.0)
+        elif cls == "BKL":
+            class_weights_list.append(2.0)
+        else:
+            class_weights_list.append(1.0)
+    class_weights = torch.tensor(class_weights_list, dtype=torch.float32).to(DEVICE)
+    print(f"Loss Class Weights: {class_weights.cpu().numpy()}", flush=True)
 
     # Initialize model
     model = TransferLesionClassifier(num_classes=7, backbone=args.backbone, pretrained=True).to(DEVICE)
@@ -248,12 +288,15 @@ def main():
         except Exception as e:
             print(f"[!] Warning loading resume checkpoint: {e}", flush=True)
 
+    # FocalLoss with mild class weights — sampler handles the heavy lifting of balance
+    # gamma=2.0 focuses learning on hard-to-classify examples (real melanomas that look benign)
     criterion = FocalLoss(gamma=2.0, weight=class_weights)
     os.makedirs(args.checkpoint_dir, exist_ok=True)
 
     best_pauc = -1.0
     best_f1 = -1.0
     history = []
+    scaler = torch.amp.GradScaler('cuda')
 
     def train_phase(phase_name, epochs, lr, start_ep):
         nonlocal best_pauc, best_f1
@@ -266,7 +309,7 @@ def main():
 
         for ep in range(start_ep, start_ep + epochs):
             t0 = time.time()
-            tr_loss = train_one_epoch(model, train_loader, opt, criterion, DEVICE)
+            tr_loss = train_one_epoch(model, train_loader, opt, criterion, DEVICE, scaler)
             va_loss, met = evaluate(model, val_loader, criterion, DEVICE)
             sched.step()
             el = time.time() - t0

@@ -263,7 +263,11 @@ async def diagnose_image(
         heatmaps, logits = gradcam(tensor)
         xai_method = "Grad-CAM"
 
-    probs = torch.softmax(logits, dim=-1)[0].cpu().numpy()
+    # Apply temperature scaling to soften ViT's math overconfidence
+    TEMPERATURE_SCALAR = 3.0
+    scaled_logits = logits / TEMPERATURE_SCALAR
+    probs = torch.softmax(scaled_logits, dim=-1)[0].cpu().numpy()
+    
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
     pred_idx = int(np.argmax(probs))
@@ -316,7 +320,7 @@ async def diagnose_image(
         try:
             import google.generativeai as genai
             genai.configure(api_key=api_key)
-            gmodel = genai.GenerativeModel("gemini-2.5-flash")
+            gmodel = genai.GenerativeModel("gemini-3.8-flash")
             g_resp = gmodel.generate_content(prompt_context)
             explanation_text = g_resp.text.strip()
         except Exception as e:
@@ -464,9 +468,21 @@ async def layerwise_attention(
         hooks = []
         def make_hook():
             def hook(module, input, output):
-                if isinstance(output, torch.Tensor) and output.dim() == 4:
-                    act = output.detach().pow(2).mean(dim=1)
-                    activations.append(act)
+                if isinstance(output, torch.Tensor):
+                    if output.dim() == 4:
+                        # CNN: [B, C, H, W] -> average channel energy
+                        act = output.detach().pow(2).mean(dim=1)
+                        activations.append(act)
+                    elif output.dim() == 3:
+                        # ViT: [B, N, C] where N = 1 (class token) + patches
+                        B, N, C = output.shape
+                        if N > 1:
+                            patches = output[:, 1:, :] # Skip class token
+                            H = int(np.sqrt(patches.shape[1]))
+                            if H * H == patches.shape[1]:
+                                act = patches.detach().pow(2).mean(dim=2) # [B, H*H]
+                                act = act.view(B, H, H) # [B, H, H]
+                                activations.append(act)
             return hook
 
         target_modules = []
@@ -542,7 +558,7 @@ async def chat_with_gemini(
         try:
             import google.generativeai as genai
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-2.5-flash")
+            model = genai.GenerativeModel("gemini-3.8-flash")
             full_prompt = f"{system_prompt}\nUser Question: {user_message}"
             response = model.generate_content(full_prompt)
             return {

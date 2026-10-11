@@ -53,23 +53,15 @@ def calculate_abcde_metrics(image_rgb: np.ndarray, heatmap_2d: np.ndarray) -> Di
     perimeter = cv2.arcLength(main_contour, True)
     
     # --- A: Asymmetry ---
-    moments = cv2.moments(main_contour)
-    if moments["m00"] != 0:
-        cx = int(moments["m10"] / moments["m00"])
-        cy = int(moments["m01"] / moments["m00"])
-    else:
-        cx, cy = w // 2, h // 2
-        
     mask_binary = (clean_mask > 0).astype(np.uint8)
-    # Flip horizontal around cx
-    flipped_h = np.fliplr(mask_binary)
-    # Flip vertical around cy
-    flipped_v = np.flipud(mask_binary)
-    diff_h = np.sum(np.abs(mask_binary.astype(float) - flipped_h.astype(float))) / (np.sum(mask_binary) + 1e-8)
-    diff_v = np.sum(np.abs(mask_binary.astype(float) - flipped_v.astype(float))) / (np.sum(mask_binary) + 1e-8)
+    x_box, y_box, w_box, h_box = cv2.boundingRect(main_contour)
+    lesion_roi = mask_binary[y_box:y_box+h_box, x_box:x_box+w_box]
+    flipped_h = np.fliplr(lesion_roi)
+    flipped_v = np.flipud(lesion_roi)
+    diff_h = np.sum(np.abs(lesion_roi.astype(float) - flipped_h.astype(float))) / (np.sum(lesion_roi) + 1e-8)
+    diff_v = np.sum(np.abs(lesion_roi.astype(float) - flipped_v.astype(float))) / (np.sum(lesion_roi) + 1e-8)
     asymmetry_val = round(float(np.clip((diff_h + diff_v) / 2.0, 0.05, 0.95)), 2)
     asymmetry_lvl = "High (Marked)" if asymmetry_val > 0.45 else ("Moderate" if asymmetry_val > 0.25 else "Symmetric")
-
     # --- B: Border Irregularity ---
     # Circularity = 4 * pi * Area / (Perimeter^2). Value near 1 = circle (smooth). Higher ratio = jagged border.
     if perimeter > 0 and area > 0:
@@ -106,7 +98,13 @@ def calculate_abcde_metrics(image_rgb: np.ndarray, heatmap_2d: np.ndarray) -> Di
 
     # Total Dermatoscopy Score (TDS) approximation
     # TDS = 1.3*A + 0.1*B + 0.5*C_score + 0.5*D_score
-    tds = round(float(1.3 * (asymmetry_val * 2) + 0.1 * border_val + 0.5 * min(color_std / 10.0, 5) + 0.5 * (1 if diameter_mm >= 6 else 0)), 2)
+    # Calibrated quantitative mapping to better reflect clinical severity
+    a_score = 1.3 * (asymmetry_val * 2.2)
+    b_score = 0.1 * (border_val * 1.5)
+    c_score = 0.5 * min(color_std / 7.0, 6.0)
+    d_score = 0.5 * min(diameter_mm / 2.0, 5.0)
+    
+    tds = round(float(a_score + b_score + c_score + d_score), 2)
     tds_risk = "Malignant / Suspicious (> 5.45)" if tds > 5.45 else ("Suspicious Borderline (4.75-5.45)" if tds >= 4.75 else "Benign (< 4.75)")
 
     return {

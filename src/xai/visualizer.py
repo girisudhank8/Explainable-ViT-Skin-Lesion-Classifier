@@ -34,7 +34,13 @@ def overlay_heatmap(
         heatmap = cv2.resize(heatmap, (w, h), interpolation=cv2.INTER_CUBIC)
 
     heatmap = np.clip(heatmap, 0.0, 1.0)
-    cmap_fn = cm.get_cmap(colormap)
+    
+    try:
+        import matplotlib as mpl
+        cmap_fn = mpl.colormaps[colormap]
+    except (AttributeError, KeyError):
+        cmap_fn = cm.get_cmap(colormap) if hasattr(cm, 'get_cmap') else getattr(cm, colormap)
+        
     colored_heatmap = cmap_fn(heatmap)[:, :, :3]  # [H, W, 3] in [0, 1]
     colored_heatmap_uint8 = (colored_heatmap * 255).astype(np.uint8)
 
